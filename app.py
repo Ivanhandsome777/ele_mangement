@@ -6,7 +6,8 @@ Created on Wed Feb 12 21:56:20 2025
 """
 
 # Source: Geeksforgeeks
-from flask import Flask, request, redirect, url_for
+from flask import Flask, request, redirect, url_for,render_template
+
 
 app = Flask(__name__)
 
@@ -16,16 +17,15 @@ employees = {"admin@example.com": {"name": "Admin", "password": "password123"}}
 users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
 
 # initial main page of the website, and directly link to the /company/login page for company_side requests
-@app.route("/", methods=["GET", "POST"])
+@app.route("/", methods=["GET","POST"])
 def mainsite():
+    return(render_template('home.html'))
 
 
-
-@app.route("/User",methods=["GET","POST"])
+@app.route("/user",methods=["GET","POST"])
 def user_query():
-    pass
 
-    return 
+    return(render_template('user_login.html'))
 
 
 @app.route("/government",methods=["GET","POST"])
@@ -35,7 +35,7 @@ def government_analysis():
 
     return 
 
-@app.route("/company/login", methods=["GET", "POST"])
+@app.route("/company", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form["email"]
@@ -44,25 +44,14 @@ def login():
         if email in employees and employees[email]["password"] == password:
             return redirect(url_for("main_menu"))
         else:
-            return "<h1>Invalid credentials. <a href='/company/login'>Try again</a></h1>"
+            return "<h1>Invalid credentials. <a href='/company'>Try again</a></h1>"
 
-    return '''<h2>Company Employee Login</h2>
-              <form method="POST">
-                Email: <input type="text" name="email" required><br>
-                Password: <input type="password" name="password" required><br>
-                <button type="submit">Login</button>
-              </form>'''
+    return(render_template("company_login.html"))
 
 # main page after login, i.e. the dash board for company employee
 @app.route("/company/main")
 def main_menu():
-    return '''<h2>Main Menu</h2>
-              <ul>
-                <li><a href="/company/register">Register a New User</a></li>
-                <li><a href="/company/modify">Modify an Existing User</a></li>
-                <li><a href="/company/deactivate">Deactivate a User</a></li>
-                <li><a href="/company/quit">Quit</a></li>
-              </ul>'''
+    return(render_template('company_main.html'))
 
 
 # company register
