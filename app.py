@@ -6,8 +6,8 @@ Created on Wed Feb 12 21:56:20 2025
 """
 
 # Source: Geeksforgeeks
-from flask import Flask, request, redirect, url_for
-
+from flask import Flask, request, redirect, url_for,render_template
+from functions import *
 app = Flask(__name__)
 
 # set up a virtual employee account
@@ -16,16 +16,34 @@ employees = {"admin@example.com": {"name": "Admin", "password": "password123"}}
 users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
 
 # initial main page of the website, and directly link to the /company/login page for company_side requests
+
+
+
+
 @app.route("/", methods=["GET", "POST"])
 def mainsite():
+    
+
+
+    return render_template("")
+
+
+@app.route("/user",methods=["GET","POST"])
+def user_login():
+    if request.method == "POST":
+        identifier = request.form["identifier"]
+        
+        # with identifier, can show analysis result
+        user_data = load_data(identifier)
+    
 
 
 
-@app.route("/User",methods=["GET","POST"])
-def user_query():
-    pass
 
-    return 
+    return render_template("user_login.html",)
+
+
+
 
 
 @app.route("/government",methods=["GET","POST"])
