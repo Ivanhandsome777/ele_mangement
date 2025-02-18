@@ -7,14 +7,17 @@ Created on Wed Feb 12 21:56:20 2025
 
 # Source: Geeksforgeeks
 from flask import Flask, request, redirect, url_for,render_template
-
+import csv
+from functions import *
+import os
 
 app = Flask(__name__)
 # read user table and active machine list CSV everytime when initiate the process
 # create empty user dictionary for user register, modity, and deactivate
 admins = {} # {email address, password}
-users = {} # { identifier: {address, region, sub_region, postcode, apartment_type} }
-
+employees = {"admin@example.com": {"name": "Admin", "password": "password123"}}
+# create empty user dictionary for user register, modity, and deactivate
+users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
 # **Load CSV Data When Flask Starts**
 def load_data():
     global admins, users
@@ -36,7 +39,7 @@ def save_data():
             writer.writerow(data)
 
 # initial main page of the website, and directly link to the /company/login page for company_side requests
-@app.route("/", methods=["GET","POST"])
+@app.route("/", methods=["GET"])
 def mainsite():
     return(render_template('home.html'))
 
@@ -58,11 +61,10 @@ def login():
     if request.method == "POST":
         email = request.form["email"]
         password = request.form["password"]
-
-        if email in employees and employees[email]["password"] == password:
-            return redirect(url_for("main_menu"))
-        else:
-            return "<h1>Invalid credentials. <a href='/company'>Try again</a></h1>"
+        # if email in employees and employees[email]["password"] == password:
+        return redirect(url_for("main_menu"))
+        # else:
+        #     return "<h1>Invalid credentials. <a href='/company'>Try again</a></h1>"
 
     return(render_template("company_login.html"))
 
@@ -72,7 +74,7 @@ def main_menu():
     return(render_template('company_main.html'))
 
 
-# company register
+# # company register
 @app.route("/company/register", methods=["GET", "POST"])
 def register_user():
     if request.method == "POST":
@@ -94,6 +96,8 @@ def register_user():
             "apartment_type": apartment_type
         }
         return f"<h1>New user {identifier} registered successfully! <a href='/company/main'>Go to Main Menu</a></h1>"
+    
+
     # post the input data to the html webpage
     return '''<h2>Register New User</h2>
               <form method="POST">
@@ -106,7 +110,7 @@ def register_user():
                 <button type="submit">Register</button>
               </form>'''
 
-# modify currently existed users' profile
+# # modify currently existed users' profile
 @app.route("/company/modify", methods=["GET", "POST"])
 def modify_user():
     if request.method == "POST":
@@ -159,7 +163,6 @@ def quit_app():
     pass
 
 # additional function: to write the updated users table and company employee table into a domestic file or store in some databse
-pass
 
 # initiate the app
 if __name__ == '__main__':
