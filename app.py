@@ -7,9 +7,8 @@ Created on Wed Feb 12 21:56:20 2025
 
 # Source: Geeksforgeeks
 from flask import Flask, request, redirect, url_for,render_template
-import csv
-from functions import *
 import os
+import csv
 
 app = Flask(__name__)
 # read user table and active machine list CSV everytime when initiate the process
@@ -56,25 +55,27 @@ def government_analysis():
 
     return 
 
-@app.route("/company", methods=["GET", "POST"])
-def login():
+@app.route("/company/login", methods=["GET", "POST"])
+def company_login():
     if request.method == "POST":
-        email = request.form["email"]
-        password = request.form["password"]
-        # if email in employees and employees[email]["password"] == password:
-        return redirect(url_for("main_menu"))
-        # else:
-        #     return "<h1>Invalid credentials. <a href='/company'>Try again</a></h1>"
+        email = request.form.get("email")  # Use .get() to prevent KeyError
+        password = request.form.get("password")
 
-    return(render_template("company_login.html"))
+        # raise error if email is not found in admin reference table
+        if email in admins and admins[email].get("password") == password:
+            return redirect(url_for("company_main"))
+
+        return render_template("company_login.html", message="Invalid credentials. Try again.")
+
+    return render_template("company_login.html")
+
 
 # main page after login, i.e. the dash board for company employee
 @app.route("/company/main")
-def main_menu():
-    return(render_template('company_main.html'))
+def company_main():
+    return render_template('company_main.html')
 
-
-# # company register
+# company register
 @app.route("/company/register", methods=["GET", "POST"])
 def register_user():
     if request.method == "POST":
@@ -85,9 +86,11 @@ def register_user():
         postcode = request.form["postcode"]
         apartment_type = request.form["apartment_type"]
 
+        # raise message if identifier already exist
         if identifier in users:
-            return "<h1>Identifier already exists! <a href='/company/register'>Try again</a></h1>"
+            return render_template("company_register.html", message="Identifier already exists! Try again.")
 
+        # base on input message, create new user profile to memory
         users[identifier] = {
             "address": address,
             "region": region,
@@ -95,30 +98,21 @@ def register_user():
             "postcode": postcode,
             "apartment_type": apartment_type
         }
-        return f"<h1>New user {identifier} registered successfully! <a href='/company/main'>Go to Main Menu</a></h1>"
-    
-
+        return render_template("company_register.html", message=f"New user {identifier} registered successfully!", success=True)
     # post the input data to the html webpage
-    return '''<h2>Register New User</h2>
-              <form method="POST">
-                Identifier: <input type="text" name="identifier" required><br>
-                Address: <input type="text" name="address" required><br>
-                Region: <input type="text" name="region" required><br>
-                Sub-Region: <input type="text" name="sub_region" required><br>
-                Postcode: <input type="text" name="postcode" required><br>
-                Apartment Type: <input type="text" name="apartment_type" required><br>
-                <button type="submit">Register</button>
-              </form>'''
+    return render_template("company_register.html")
 
-# # modify currently existed users' profile
+# modify currently existed users' profile
 @app.route("/company/modify", methods=["GET", "POST"])
 def modify_user():
     if request.method == "POST":
         identifier = request.form["identifier"]
 
+        # raise error to notify that unavailable identifier input
         if identifier not in users:
-            return "<h1>User not found! <a href='/company/modify'>Try again</a></h1>"
+            return render_template("company_modity.html", message = 'User not found! Try again')
 
+        # update the user profile in system's memory and wait to be written to csv back-up after system shutting down
         users[identifier] = {
             "address": request.form["address"],
             "region": request.form["region"],
@@ -126,43 +120,29 @@ def modify_user():
             "postcode": request.form["postcode"],
             "apartment_type": request.form["apartment_type"]
         }
-        return f"<h1>User {identifier} modified successfully! <a href='/company/main'>Go to Main Menu</a></h1>"
+        return render_template("company_modify.html", message = f"User {identifier} modified successfully!", success = True)
 
-    return '''<h2>Modify Existing User</h2>
-              <form method="POST">
-                Identifier: <input type="text" name="identifier" required><br>
-                New Address: <input type="text" name="address" required><br>
-                New Region: <input type="text" name="region" required><br>
-                New Sub-Region: <input type="text" name="sub_region" required><br>
-                New Postcode: <input type="text" name="postcode" required><br>
-                New Apartment Type: <input type="text" name="apartment_type" required><br>
-                <button type="submit">Modify</button>
-              </form>'''
+    return render_template("company_modify.html")
 
 # deactivate a user's identifier
 @app.route("/company/deactivate", methods=["GET", "POST"])
 def deactivate_user():
     if request.method == "POST":
-        identifier = request.form["identifier"]
+        identifier = request.form.get("identifier")
 
+        # raise message to notify: user not found
         if identifier not in users:
-            return "<h1>User not found! <a href='/company/deactivate'>Try again</a></h1>"
-
+            return render_template("company_deactivate.html", message = "User not found! Please try again")
+        # if found user identifier, delete it from the memory table and update to csv system file after shutting
         del users[identifier]
-        return f"<h1>User {identifier} deactivated successfully! <a href='/company/main'>Go to Main Menu</a></h1>"
+        return render_template('company_deactivate.html', message = f"user {identifier} deleted successfully, wait for system udpate", success = True)
 
-    return '''<h2>Deactivate User</h2>
-              <form method="POST">
-                Identifier: <input type="text" name="identifier" required><br>
-                <button type="submit">Deactivate</button>
-              </form>'''
+    return render_template('company_deactivate.html')
 
 # quit the whole system (not finished yet)
 @app.route("/company/quit")
 def quit_app():
     pass
-
-# additional function: to write the updated users table and company employee table into a domestic file or store in some databse
 
 # initiate the app
 if __name__ == '__main__':
