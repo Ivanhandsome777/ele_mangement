@@ -14,8 +14,9 @@ app = Flask(__name__)
 # read user table and active machine list CSV everytime when initiate the process
 # create empty user dictionary for user register, modity, and deactivate
 admins = {} # {email address, password}
-users = {} # { identifier: {address, region, sub_region, postcode, apartment_type} }
-
+employees = {"admin@example.com": {"name": "Admin", "password": "password123"}}
+# create empty user dictionary for user register, modity, and deactivate
+users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
 # **Load CSV Data When Flask Starts**
 def load_data():
     global admins, users
@@ -37,7 +38,7 @@ def save_data():
             writer.writerow(data)
 
 # initial main page of the website, and directly link to the /company/login page for company_side requests
-@app.route("/", methods=["GET","POST"])
+@app.route("/", methods=["GET"])
 def mainsite():
     return(render_template('home.html'))
 
