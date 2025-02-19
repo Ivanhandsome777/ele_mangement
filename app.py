@@ -6,95 +6,63 @@ Created on Wed Feb 12 21:56:20 2025
 """
 
 # Source: Geeksforgeeks
-
-import pandas as pd
-from flask import Flask, render_template, request, redirect, url_for,render_template
+from flask import Flask, request, redirect, url_for,render_template
 import os
 import csv
-from datetime import datetime, timedelta
-import os
-from functions import calculate_usage,calculate_billing
+import threading
+import logging
+import pandas as pd
+from datetime import datetime
+from functions import load_data,save_data,initialize_data
 
 app = Flask(__name__)
-
-meter_readings = [
-    {"meter_id": "524-935-527", "timestamp": datetime(2025, 2, 19, 0, 30), "reading_kwh": 144.5},
-    {"meter_id": "524-935-527", "timestamp": datetime(2025, 2, 18, 22, 0), "reading_kwh": 140},
-    {"meter_id": "524-935-527", "timestamp": datetime(2025, 1, 18, 22, 30), "reading_kwh": 30},
-    {"meter_id": "524-935-527", "timestamp": datetime(2025, 2, 12, 22, 30), "reading_kwh": 50},
-    {"meter_id": "524-935-527", "timestamp": datetime(2025, 1, 1, 22, 30), "reading_kwh": 10},
-]
-
-LOG_FILE = 'meter_logs.txt'
 # read user table and active machine list CSV everytime when initiate the process
-# create empty user dictionary for user register, modity, and deactivate
+
+## 1. create empty user dictionary for user register, modity, and deactivate
 admins = {} # {email address, password}
 employees = {"admin@example.com": {"name": "Admin", "password": "password123"}}
-# create empty user dictionary for user register, modity, and deactivate
-users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
-# **Load CSV Data When Flask Starts**
-def load_data():
-    global admins, users
-    # load data from admins.csv
-    with open("admins.csv", "r") as file:
-        reader = csv.DictReader(file)
-        admins = {row["email"]: {"password": row["password"]} for row in reader}
-    # load data from users.csv
-    with open("users.csv", "r") as file:
-        reader = csv.DictReader(file)
-        users = {row["identifier"]: row for row in reader}
 
-# save updated users profile to CSV when Flask is shut down
-def save_data():
-    with open("users.csv", "w", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=["identifier", "address", "region", "sub_region", "postcode", "apartment_type"])
-        writer.writeheader()
-        for identifier, data in users.items():
-            writer.writerow(data)
+## 2. create empty user dictionary for user register, modity, and deactivate
+users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
+
+
+# # **Load CSV Data When Flask Starts**
+# def load_data():
+#     global admins, users
+#     # load data from admins.csv
+#     with open("admins.csv", "r") as file:
+#         reader = csv.DictReader(file)
+#         admins = {row["email"]: {"password": row["password"]} for row in reader}
+#     # load data from users.csv
+#     with open("users.csv", "r") as file:
+#         reader = csv.DictReader(file)
+#         users = {row["identifier"]: row for row in reader}
+#     print(admins)
+#     print(users)
+
+# # save updated users profile to CSV when Flask is shut down
+# def save_data():
+#     with open("users.csv", "w", newline="") as file:
+#         writer = csv.DictWriter(file, fieldnames=["identifier", "address", "region", "sub_region", "postcode", "apartment_type"])
+#         writer.writeheader()
+#         for identifier, data in users.items():
+#             writer.writerow(data)
+
+
 
 # initial main page of the website, and directly link to the /company/login page for company_side requests
 @app.route("/", methods=["GET"])
 def mainsite():
-    return render_template('home.html')
+    return(render_template('home.html'))
 
 
-@app.route("/User/query",methods=["GET","POST"])
+@app.route("/user",methods=["GET","POST"])
 def user_query():
-    if request.method == 'POST':
-        meter_id = request.form.get('meter_id')
-        time_range = request.form.get('time_range')
-        
-        if not meter_id or not time_range:
-            return render_template('user_query.html', error="please input all parameters needed")
-            
-        # 记录日志
-        with open(LOG_FILE, 'a') as f:
-            f.write(f"{datetime.now()}: 查询请求 - 电表ID: {meter_id}, 时间范围: {time_range}\n")
-            
-        return redirect(url_for('result', 
-                             meter_id=meter_id,
-                             time_range=time_range))
-    
-    return render_template('user_query.html')
 
-@app.route('/User/query/result')
-def result():
-    meter_id = request.args.get('meter_id')
-    time_range = request.args.get('time_range')
-    
-    usage = calculate_usage(meter_id, time_range)
-    billing = calculate_billing(meter_id)
-    
-    if usage is None or billing is None:
-        return render_template('user_query_result.html',
-                             error="can not find data or insufficient data",
-                             meter_id=meter_id)
-    
-    return render_template('user_query_result.html',
-                         meter_id=meter_id,
-                         time_range=time_range,
-                         usage=usage,
-                         billing=billing)
+    return(render_template('user_login.html'))
+
+
+
 
 @app.route("/government",methods=["GET","POST"])
 def government_analysis():
@@ -117,9 +85,8 @@ def company_login():
 
     return render_template("company_login.html")
 
-
 # main page after login, i.e. the dash board for company employee
-@app.route("/company/main")
+@app.route("/company/main", methods=["GET", "POST"])
 def company_main():
     return render_template('company_main.html')
 
@@ -187,6 +154,8 @@ def deactivate_user():
 
     return render_template('company_deactivate.html')
 
+
+
 # quit the whole system (not finished yet)
 @app.route("/company/quit")
 def quit_app():
@@ -199,3 +168,5 @@ if __name__ == '__main__':
         app.run(debug=False) # using debug = True will result in anaconda bugs, how to fix it?
     finally:
         save_data() # save changes on the users profile
+        if df_elec is not None: # check if df_elec is initialized
+            df_elec.to_csv("electricity_data.csv", index=False)

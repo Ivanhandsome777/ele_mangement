@@ -20,12 +20,21 @@ app = Flask(__name__)
 
 global asd #accidental shutdown
 global df_ele,log_lock
+global users,admins
+
+admins = {} # {email address, password}
+users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
+print(users)
+
 init_logger() # 启动后台线程处理数据：这里会先检查log如果存在，说明之前意外掉线
 init_daily_csv()
 log_lock = threading.Lock()
+
 # thread = threading.Thread(target=process_data)
 # thread.daemon = True  # 设置为守护线程，主线程退出时自动退出
 # thread.start()
+# read user table and active machine list CSV everytime when initiate the process
+
 
 # ===========================================================
 
@@ -49,16 +58,6 @@ def government_analysis():
     pass
 
     return 
-
-# read user table and active machine list CSV everytime when initiate the process
-## 1. create empty user dictionary for user register, modity, and deactivate
-admins = {} # {email address, password}
-employees = {"admin@example.com": {"name": "Admin", "password": "password123"}}
-
-## 2. create empty user dictionary for user register, modity, and deactivate
-users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
-print(users)
-
 
 
 # ===========================================================
@@ -106,10 +105,9 @@ def register_user():
             "postcode": postcode,
             "apartment_type": apartment_type
         }
-        return render_template("company_register.html", message=f"New user {identifier} registered successfully!", success=True)
+        save_data()  # 立即保存数据
+        return f"<h1>New user {identifier} registered successfully! <a href='/company/main'>Go to Main Menu</a></h1>"
     # post the input data to the html webpage
-    
-    save_data() # save changes on the users profile
     return render_template("company_register.html")
 
 # modify currently existed users' profile
@@ -159,7 +157,7 @@ def meter_uploading():
     if request.method == "POST":
         identifier = request.form.get("identifier")
         usage = request.form.get("usage")
-
+        print(f'usage: {usage}!!!!!!')
         if identifier in users:
             # Append to DataFrame
             now = datetime.now()
@@ -169,6 +167,13 @@ def meter_uploading():
             new_row = {'identifier': identifier, 'usage': usage, 'timestamp': timestamp}
             df_ele.loc[len(df_ele)] = new_row
 
+
+            # Correct way to append to a DataFrame: using .loc with a new index
+            new_row = {'identifier': identifier, 'usage': usage, 'timestamp': timestamp}
+            new_df = pd.DataFrame([new_row])
+            df_ele = pd.concat([df_ele, new_df], ignore_index=True)
+            print(new_row)
+
             # 【Log】Append to log.txt (comma-separated)
             with log_lock:  # get the lock
                 try:
@@ -177,7 +182,7 @@ def meter_uploading():
                 except Exception as e:
                     return jsonify({'message': 'Data uploading failed.'})  #failed
         else:
-            return render_template("meter_upload.html", message="Invalid credentials. Try again.")
+            return "<h1>Invalid credentials. <a href='/company/login'>Try again</a></h1>"
 
     return render_template("meter_upload.html")
 
@@ -188,25 +193,26 @@ def meter_uploaded():
     return render_template("meter_upload_successfully.html")
 
 
-# quit the whole system (not finished yet)
-@app.route("/company/quit")
-def quit_app():
-    pass
-
-@app.route('/stopServer', methods = ['GET'])
+@app.route('/stopServer', methods = ['GET','POST'])
 def stop_server():
     global acceptAPI
     acceptAPI = False
     batchJobs()
     acceptAPI = True
-    return "Server Shutting Down"      
-
+    save_data()
+    shutdown = request.environ.get("werkzeug.server.shutdown")
+    if shutdown:
+        shutdown()
+    return "<h1>Server is shutting down...</h1>"
 
    
 if __name__ == '__main__':
     # global df_ele
     load_data() # load admin and users profile before initiating the app
     try:
-        app.run(debug=False) # using debug = True will result in anaconda bugs, how to fix it?
+        app.run(debug=False, use_reloader=False) # using debug = True will result in anaconda bugs, how to fix it?
     except:
         print('something went wrong.')
+    finally:
+        save_data()
+

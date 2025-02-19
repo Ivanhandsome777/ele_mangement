@@ -33,7 +33,7 @@ def init_logger():
     else:
         # 读取log.txt文件并加载到DataFrame中
         df_ele = pd.read_csv(log_file_path, names=['identifier', 'timestamp', 'usage'],sep=',')
-        asd = False
+        asd = True
     return df_ele
 
 
@@ -58,6 +58,7 @@ def write_log(identifier, timestamp, usage):
         'timestamp': timestamp,
         'usage': usage
     }
+    print(json.dumps(log_data) + '\n')
 
     with open('log.txt', 'a') as f:
         f.write(json.dumps(log_data) + '\n')

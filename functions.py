@@ -9,14 +9,15 @@ import json
 # **Load CSV Data When Flask Starts**
 def load_data():
     global admins, users
-    # load data from admins.csv
-    with open("admins.csv", "r") as file:
-        reader = csv.DictReader(file)
-        admins = {row["email"]: {"password": row["password"]} for row in reader}
-    # load data from users.csv
-    with open("users.csv", "r") as file:
-        reader = csv.DictReader(file)
-        users = {row["identifier"]: row for row in reader}
+    if os.path.exists("admins.csv"):
+        with open("admins.csv", "r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            admins = {row["email"]: {"password": row["password"]} for row in reader}
+
+    if os.path.exists("users.csv"):
+        with open("users.csv", "r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            users = {row["identifier"]: row for row in reader}
     print(admins)
     print(users)
 
@@ -26,6 +27,6 @@ def save_data():
         writer = csv.DictWriter(file, fieldnames=["identifier", "address", "region", "sub_region", "postcode", "apartment_type"])
         writer.writeheader()
         for identifier, data in users.items():
-            writer.writerow(data)
+            writer.writerow({"identifier": identifier, **data})
 
 

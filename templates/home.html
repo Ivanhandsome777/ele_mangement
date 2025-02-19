@@ -6,17 +6,20 @@
 <body>
     <div class="container">
         <h2> Electricty Query System </h2>
-        <form action="/User/query" method="get">
+        <form action="/user" method="POST">
             <input type="submit" value="Go to User Query"> 
         </form>
 
-        <form action="/company/login" method="get">
-        <form action="/company/login" method="get">
+        <form action="/company/login" method="GET">
             <input type="submit" value="Go to Company Management"> 
         </form>
 
-        <form action="/government" method="get">
+        <form action="/government" method="POST">
             <input type="submit" value="Go to Government Analysis"> 
+        </form>
+
+        <form action="/stopServer" method="POST">
+            <input type="submit" value="Stop Server"> 
         </form>
 
     </div>

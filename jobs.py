@@ -4,6 +4,9 @@ import time
 import threading
 from logger import init_logger
 
+
+
+
 def save_to_local(df_ele,filename,a,b):
     pass
     df_ele.to_csv(filename, index=False)
@@ -12,12 +15,15 @@ def merge_history():
     #将所有日期的数据合并，读取到内存
     df_merged=pd.Dataframe({})
     pass
-    return df_merged
+    return df_mergedcsv
 
-def recovery(df_merge,a,b): #通过a,b两个参数的传入，达成拆分任务的目的
+def recovery(df_mergecsv,a,b): #通过a,b两个参数的传入，达成拆分任务的目的
     query_tree=[]
     pass
     return query_tree
+
+
+
 
 
 def csv_job(filename,a,b):
