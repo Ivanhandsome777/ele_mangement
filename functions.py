@@ -90,21 +90,36 @@ def calculate_billing(meter_id):
     if not start_reading or not end_reading:
         return None
     
-    return round(end_reading['reading_kwh'] - start_reading['reading_kwh'], 2)import pandas as pd
-import csv
+    return round(end_reading['reading_kwh'] - start_reading['reading_kwh'], 2)
 
 
 
-def load_data(identifier):
-    """获取此用户的过去所有信息"""
-    df = pd.read_csv(""):
-    df.loc[]
 
 
-    return this_users_data
 
+def preprocess_data(df):
+    """
+    计算每个电表的最近一次用电量
+    """
+    df['timestamp'] = pd.to_datetime(df[['year', 'month', 'day', 'time']].astype(str).agg(' '.join, axis=1))
+    df = df.sort_values(by=['Identifier', 'timestamp'])
 
-def plot_
+    df['prev_reading'] = df.groupby('Identifier')['kwh_per_acc'].shift(1)
+    df['recent_usage'] = df['kwh_per_acc'] - df['prev_reading']
+    df['recent_usage'] = df['recent_usage'].fillna(0)
+    df = df[df['recent_usage'] >= 0]
+
+    return df
+
+def export_data(df, start_date, end_date, file_name='exported_data.csv'):
+    """ 增加时间过滤 """
+    filtered_df = df[
+        (df['timestamp'] >= pd.to_datetime(start_date)) & 
+        (df['timestamp'] <= pd.to_datetime(end_date))
+    ]
+    filtered_df.to_csv(file_name, index=False)
+    return file_name
+
 
 
 
