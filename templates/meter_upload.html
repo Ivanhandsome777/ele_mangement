@@ -1,0 +1,17 @@
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css')}}">
+</head>
+
+<body>
+    <div class="container">
+        <h2> Meter Data Uploading</h2>
+        <form action="/company/main" method="post">
+            Meter ID: <input type="text" name="identifier" required>
+            Electricity Usage: <input type="number" name="usage" required>
+            <button type="submit">Upload numbers</button>
+        </form>
+    </div>
+</body>
+
+
