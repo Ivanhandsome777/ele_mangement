@@ -1,67 +1,55 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Wed Feb 12 21:56:20 2025
-
-@author: 30048
-"""
-
-# Source: Geeksforgeeks
-from flask import Flask, request, redirect, url_for,render_template
 import os
 import csv
-import threading
-import logging
 import pandas as pd
 from datetime import datetime
-from functions import load_data,save_data,initialize_data
+from flask import Flask, jsonify, request, redirect, url_for, render_template
+import threading
+import threading
+import time
+import random
 
+from jobs import batchJobs
+from functions import load_data,save_data
+from logger import init_logger,init_daily_csv,write_log
+
+acceptAPI = True
 app = Flask(__name__)
+
+# ===========================================================
+# 初始化的逻辑都写在这里
+
+global asd #accidental shutdown
+global df_ele,log_lock
+global users,admins
+
+admins = {} # {email address, password}
+users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
+print(users)
+
+init_logger() # 启动后台线程处理数据：这里会先检查log如果存在，说明之前意外掉线
+init_daily_csv()
+log_lock = threading.Lock()
+
+# thread = threading.Thread(target=process_data)
+# thread.daemon = True  # 设置为守护线程，主线程退出时自动退出
+# thread.start()
 # read user table and active machine list CSV everytime when initiate the process
 
-## 1. create empty user dictionary for user register, modity, and deactivate
-admins = {} # {email address, password}
-employees = {"admin@example.com": {"name": "Admin", "password": "password123"}}
 
-## 2. create empty user dictionary for user register, modity, and deactivate
-users = {}  # { identifier: {address, region, sub_region, postcode, apartment_type} }
+# ===========================================================
 
-
-# # **Load CSV Data When Flask Starts**
-# def load_data():
-#     global admins, users
-#     # load data from admins.csv
-#     with open("admins.csv", "r") as file:
-#         reader = csv.DictReader(file)
-#         admins = {row["email"]: {"password": row["password"]} for row in reader}
-#     # load data from users.csv
-#     with open("users.csv", "r") as file:
-#         reader = csv.DictReader(file)
-#         users = {row["identifier"]: row for row in reader}
-#     print(admins)
-#     print(users)
-
-# # save updated users profile to CSV when Flask is shut down
-# def save_data():
-#     with open("users.csv", "w", newline="") as file:
-#         writer = csv.DictWriter(file, fieldnames=["identifier", "address", "region", "sub_region", "postcode", "apartment_type"])
-#         writer.writeheader()
-#         for identifier, data in users.items():
-#             writer.writerow(data)
-
-
-
-# initial main page of the website, and directly link to the /company/login page for company_side requests
 @app.route("/", methods=["GET"])
 def mainsite():
-    return(render_template('home.html'))
+    if acceptAPI:
+        return(render_template('home.html'))
+    else:
+        return(render_template('api_shutdown.html'))
+
 
 
 @app.route("/user",methods=["GET","POST"])
 def user_query():
-
     return(render_template('user_login.html'))
-
-
 
 
 @app.route("/government",methods=["GET","POST"])
@@ -70,6 +58,10 @@ def government_analysis():
     pass
 
     return 
+
+
+# ===========================================================
+# 粘贴其他route入口
 
 @app.route("/company/login", methods=["GET", "POST"])
 def company_login():
@@ -113,7 +105,8 @@ def register_user():
             "postcode": postcode,
             "apartment_type": apartment_type
         }
-        return render_template("company_register.html", message=f"New user {identifier} registered successfully!", success=True)
+        save_data()  # 立即保存数据
+        return f"<h1>New user {identifier} registered successfully! <a href='/company/main'>Go to Main Menu</a></h1>"
     # post the input data to the html webpage
     return render_template("company_register.html")
 
@@ -154,19 +147,72 @@ def deactivate_user():
 
     return render_template('company_deactivate.html')
 
+# ===========================================================
+
+# upload meter electricity usage
+@app.route("/company/meter", methods=["GET", "POST"])
+def meter_uploading():
+    global df_ele
+    global log_lock
+    if request.method == "POST":
+        identifier = request.form.get("identifier")
+        usage = request.form.get("usage")
+        print(f'usage: {usage}!!!!!!')
+        if identifier in users:
+            # Append to DataFrame
+            now = datetime.now()
+            timestamp = now.strftime("%Y-%m-%d %H:%M:%S")
+            
+            # 【Dataframe】
+            new_row = {'identifier': identifier, 'usage': usage, 'timestamp': timestamp}
+            df_ele.loc[len(df_ele)] = new_row
 
 
-# quit the whole system (not finished yet)
-@app.route("/company/quit")
-def quit_app():
-    pass
+            # Correct way to append to a DataFrame: using .loc with a new index
+            new_row = {'identifier': identifier, 'usage': usage, 'timestamp': timestamp}
+            new_df = pd.DataFrame([new_row])
+            df_ele = pd.concat([df_ele, new_df], ignore_index=True)
+            print(new_row)
 
-# initiate the app
+            # 【Log】Append to log.txt (comma-separated)
+            with log_lock:  # get the lock
+                try:
+                    write_log(identifier, timestamp, usage)
+                    return redirect(url_for("meter_uploaded", identifier=identifier, usage=usage))  #succeeded
+                except Exception as e:
+                    return jsonify({'message': 'Data uploading failed.'})  #failed
+        else:
+            return "<h1>Invalid credentials. <a href='/company/login'>Try again</a></h1>"
+
+    return render_template("meter_upload.html")
+
+@app.route("/company/meter_uploaded")
+def meter_uploaded():
+    identifier = request.args.get("identifier")
+    usage = request.args.get("usage")
+    return render_template("meter_upload_successfully.html")
+
+
+@app.route('/stopServer', methods = ['GET','POST'])
+def stop_server():
+    global acceptAPI
+    acceptAPI = False
+    batchJobs()
+    acceptAPI = True
+    save_data()
+    shutdown = request.environ.get("werkzeug.server.shutdown")
+    if shutdown:
+        shutdown()
+    return "<h1>Server is shutting down...</h1>"
+
+   
 if __name__ == '__main__':
+    # global df_ele
     load_data() # load admin and users profile before initiating the app
     try:
-        app.run(debug=False) # using debug = True will result in anaconda bugs, how to fix it?
+        app.run(debug=False, use_reloader=False) # using debug = True will result in anaconda bugs, how to fix it?
+    except:
+        print('something went wrong.')
     finally:
-        save_data() # save changes on the users profile
-        if df_elec is not None: # check if df_elec is initialized
-            df_elec.to_csv("electricity_data.csv", index=False)
+        save_data()
+

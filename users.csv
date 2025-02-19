@@ -1,2 +1,7 @@
 identifier,address,region,sub_region,postcode,apartment_type
 123456,Blk 123 Street,West Region,Jurong West,640123,HDB
+test1,x,shjd,x,x,x
+test2,x,x,x,290,x
+test3,x,x,192,x,x
+test4,x,14,x,x,x
+test5,12,x,x,x,x
