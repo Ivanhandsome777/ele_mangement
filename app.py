@@ -6,11 +6,26 @@ Created on Wed Feb 12 21:56:20 2025
 """
 
 # Source: Geeksforgeeks
-from flask import Flask, request, redirect, url_for,render_template
+
+import pandas as pd
+from flask import Flask, render_template, request, redirect, url_for,render_template
 import os
 import csv
+from datetime import datetime, timedelta
+import os
+from functions import calculate_usage,calculate_billing
 
 app = Flask(__name__)
+
+meter_readings = [
+    {"meter_id": "524-935-527", "timestamp": datetime(2025, 2, 19, 0, 30), "reading_kwh": 144.5},
+    {"meter_id": "524-935-527", "timestamp": datetime(2025, 2, 18, 22, 0), "reading_kwh": 140},
+    {"meter_id": "524-935-527", "timestamp": datetime(2025, 1, 18, 22, 30), "reading_kwh": 30},
+    {"meter_id": "524-935-527", "timestamp": datetime(2025, 2, 12, 22, 30), "reading_kwh": 50},
+    {"meter_id": "524-935-527", "timestamp": datetime(2025, 1, 1, 22, 30), "reading_kwh": 10},
+]
+
+LOG_FILE = 'meter_logs.txt'
 # read user table and active machine list CSV everytime when initiate the process
 # create empty user dictionary for user register, modity, and deactivate
 admins = {} # {email address, password}
@@ -40,13 +55,46 @@ def save_data():
 # initial main page of the website, and directly link to the /company/login page for company_side requests
 @app.route("/", methods=["GET"])
 def mainsite():
-    return(render_template('home.html'))
+    return render_template('home.html')
 
 
-@app.route("/user",methods=["GET","POST"])
+@app.route("/User/query",methods=["GET","POST"])
 def user_query():
+    if request.method == 'POST':
+        meter_id = request.form.get('meter_id')
+        time_range = request.form.get('time_range')
+        
+        if not meter_id or not time_range:
+            return render_template('user_query.html', error="please input all parameters needed")
+            
+        # 记录日志
+        with open(LOG_FILE, 'a') as f:
+            f.write(f"{datetime.now()}: 查询请求 - 电表ID: {meter_id}, 时间范围: {time_range}\n")
+            
+        return redirect(url_for('result', 
+                             meter_id=meter_id,
+                             time_range=time_range))
+    
+    return render_template('user_query.html')
 
-    return(render_template('user_login.html'))
+@app.route('/User/query/result')
+def result():
+    meter_id = request.args.get('meter_id')
+    time_range = request.args.get('time_range')
+    
+    usage = calculate_usage(meter_id, time_range)
+    billing = calculate_billing(meter_id)
+    
+    if usage is None or billing is None:
+        return render_template('user_query_result.html',
+                             error="can not find data or insufficient data",
+                             meter_id=meter_id)
+    
+    return render_template('user_query_result.html',
+                         meter_id=meter_id,
+                         time_range=time_range,
+                         usage=usage,
+                         billing=billing)
 
 @app.route("/government",methods=["GET","POST"])
 def government_analysis():
