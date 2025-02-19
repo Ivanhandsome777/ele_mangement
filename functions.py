@@ -97,6 +97,7 @@ def calculate_billing(meter_id):
 
 
 
+
 def preprocess_data(df):
     """
     计算每个电表的最近一次用电量
@@ -119,6 +120,7 @@ def export_data(df, start_date, end_date, file_name='exported_data.csv'):
     ]
     filtered_df.to_csv(file_name, index=False)
     return file_name
+
 
 
 
