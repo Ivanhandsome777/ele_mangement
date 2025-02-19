@@ -63,7 +63,8 @@ def save_data():
         writer = csv.DictWriter(file, fieldnames=["identifier", "address", "region", "sub_region", "postcode", "apartment_type"])
         writer.writeheader()
         for identifier, data in users.items():
-            writer.writerow(data)
+            data_with_id = {"identifier": identifier, **data}  # Include identifier in the dictionary
+            writer.writerow(data_with_id)
 
 # initial main page of the website, and directly link to the /company/login page for company_side requests
 @app.route("/", methods=["GET"])
@@ -267,7 +268,7 @@ def company_login():
 
 
 # main page after login, i.e. the dash board for company employee
-@app.route("/company/main")
+@app.route("/company/main", methods=["GET", "POST"])
 def company_main():
     return render_template('company_main.html')
 
