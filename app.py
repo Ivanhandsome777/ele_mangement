@@ -12,10 +12,23 @@ from flask import Flask, render_template, request, redirect, url_for,render_temp
 import os
 import csv
 from datetime import datetime, timedelta
-import os
-from functions import calculate_usage,calculate_billing
+from functions import calculate_usage,calculate_billing,preprocess_data,export_data
+import dash
+from dash import dcc, html, Input, Output
+from dash import dash_table
+import plotly.express as px
+from flask import send_file
+
 
 app = Flask(__name__)
+df = pd.read_csv('data.csv')
+df = preprocess_data(df)
+global_start_date = None
+global_end_date = None
+# 初始化 Dash 应用
+dashapp = dash.Dash(__name__, server=app, url_base_pathname="/government/query/analysis/")
+
+
 
 meter_readings = [
     {"meter_id": "524-935-527", "timestamp": datetime(2025, 2, 19, 0, 30), "reading_kwh": 144.5},
@@ -57,7 +70,6 @@ def save_data():
 def mainsite():
     return render_template('home.html')
 
-
 @app.route("/User/query",methods=["GET","POST"])
 def user_query():
     if request.method == 'POST':
@@ -96,12 +108,148 @@ def result():
                          usage=usage,
                          billing=billing)
 
-@app.route("/government",methods=["GET","POST"])
-def government_analysis():
 
-    pass
+dashapp.layout = html.Div([
+    dcc.Location(id='url', refresh=False),  # 新增
+    html.H1("Eletricity Usage Visualized Analysis"),
+    
+    # 时间选择
+    html.Label("Chosen Time Range:"),
+    dcc.DatePickerRange(
+        id='date-picker',
+        start_date=df['timestamp'].min(),
+        end_date=df['timestamp'].max(),
+        display_format='YYYY-MM-DD'
+    ),
+    
+    html.Br(),
+    
+    # 折线图选择
+    dcc.RadioItems(
+        id='line-chart-option',
+        options=[
+            {'label': 'By year', 'value': 'year'},
+            {'label': 'By quarter', 'value': 'quarter'}
+        ],
+        value='year',
+        inline=True
+    ),
+    dcc.Graph(id='line-chart'),
 
-    return 
+    html.Br(),
+
+    # 饼图选择
+    dcc.RadioItems(
+        id='pie-chart-option',
+        options=[
+            {'label': 'By Dwelling Type', 'value': 'dwelling_type'},
+            {'label': 'By Region', 'value': 'Region'}
+        ],
+        value='dwelling_type',
+        inline=True
+    ),
+    dcc.Graph(id='pie-chart'),
+
+    html.Br(),
+
+    # 导出数据按钮
+    html.Button("Export data", id="export-btn", n_clicks=0),
+    html.A("Download CSV", id="download-link", href="", target="_blank", style={"display": "none"})
+])
+@dashapp.callback(
+    [Output('date-picker', 'start_date'),
+     Output('date-picker', 'end_date')],
+    [Input('url', 'search')]
+)
+def update_date_range(search):
+    """ 从 URL 参数解析时间范围 """
+    from urllib.parse import parse_qs
+    params = parse_qs(search.lstrip('?'))
+    global global_start_date, global_end_date
+    global_start_date = params.get('start', [None])[0]
+    global_end_date = params.get('end', [None])[0]
+    return global_start_date, global_end_date
+
+@dashapp.callback(
+    Output('line-chart', 'figure'),
+    [Input('line-chart-option', 'value'),
+     Input('date-picker', 'start_date'),
+     Input('date-picker', 'end_date')]
+)
+def update_line_chart(option, start_date, end_date):
+    """ 修正季度显示问题 """
+    filtered_df = df[
+        (df['timestamp'] >= pd.to_datetime(start_date)) & 
+        (df['timestamp'] <= pd.to_datetime(end_date))
+    ]
+    
+    if option == 'year':
+        df_grouped = filtered_df.groupby('year')['recent_usage'].sum().reset_index()
+        fig = px.line(df_grouped, x='year', y='recent_usage', title="Yearly Electricity Usage Fluctuation")
+        fig.update_xaxes(type='category')  # 强制显示为分类数据
+    else:
+        # 生成友好季度格式（YYYY-Q1）
+        filtered_df['quarter'] = filtered_df['timestamp'].dt.to_period("Q").dt.strftime('%Y-Q%q')
+        df_grouped = filtered_df.groupby('quarter')['recent_usage'].sum().reset_index()
+        fig = px.line(df_grouped, x='quarter', y='recent_usage', title="Quarterly Electricity Usage Fluctuation")
+        fig.update_xaxes(type='category')  # 强制显示为分类数据
+    
+    return fig
+
+@dashapp.callback(
+    Output('pie-chart', 'figure'),
+    [Input('pie-chart-option', 'value'),
+     Input('date-picker', 'start_date'),
+     Input('date-picker', 'end_date')]
+)
+def update_pie_chart(option, start_date, end_date):
+    """ 带时间过滤的饼图 """
+    filtered_df = df[
+        (df['timestamp'] >= pd.to_datetime(start_date)) & 
+        (df['timestamp'] <= pd.to_datetime(end_date))
+    ]
+    
+    if option == 'dwelling_type':
+        df_grouped = filtered_df.groupby('dwelling_type')['recent_usage'].sum().reset_index()
+        title = "Electricity Usage Distribution by Dwelling Types"
+    else:
+        df_grouped = filtered_df.groupby('Region')['recent_usage'].sum().reset_index()
+        title = "Electricity Usage Distribution by Regions"
+    
+    fig = px.pie(df_grouped, names=option, values='recent_usage', title=title,hole=0)
+    fig.update_layout(
+    width=600,  # 设置宽度
+    height=600,  # 设置高度
+    margin=dict(l=20, r=20, t=40, b=20)  # 调整边距
+)
+    return fig
+
+@dashapp.callback(
+    Output("download-link", "href"),
+    Output("download-link", "style"),
+    [Input("export-btn", "n_clicks")],
+    [dash.dependencies.State('date-picker', 'start_date'),
+     dash.dependencies.State('date-picker', 'end_date')]
+)
+def export_csv(n_clicks, start_date, end_date):
+    if n_clicks > 0:
+        file_name = export_data(df, start_date, end_date)
+        return f"/download/{file_name}", {"display": "block"}
+    return "", {"display": "none"}
+
+@app.route("/download/<path:filename>")
+def download_file(filename):
+    return send_file(filename, as_attachment=True)
+
+@app.route("/government/query/", methods=["GET", "POST"])
+def government_query():
+    if request.method == "POST":
+        start_date = request.form.get("start")
+        end_date = request.form.get("end")
+        # 重定向到 Dash 页面并携带参数
+        return redirect(f"/government/query/analysis/?start={start_date}&end={end_date}")
+    return render_template("government_query.html")
+
 
 @app.route("/company/login", methods=["GET", "POST"])
 def company_login():
